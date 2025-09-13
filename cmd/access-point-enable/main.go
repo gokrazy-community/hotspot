@@ -124,7 +124,7 @@ func findWirelessInterface(name string) (*net.Interface, error) {
 		if len(interfaces) > 1 {
 			names := make([]string, 0, len(interfaces))
 			for _, ifc := range interfaces {
-				names = append(names, ifc.Name)
+				names = append(names, fmt.Sprintf("%q (%d)", ifc.Name, ifc.Index))
 			}
 			return nil, fmt.Errorf("multiple wifi interfaces available: %v", names)
 		}
@@ -141,7 +141,7 @@ func findWirelessInterface(name string) (*net.Interface, error) {
 		if iface == nil {
 			names := make([]string, 0, len(interfaces))
 			for _, ifc := range interfaces {
-				names = append(names, ifc.Name)
+				names = append(names, fmt.Sprintf("%q (%d)", ifc.Name, ifc.Index))
 			}
 			return nil, fmt.Errorf("%q not found, available interfaces: %v", name, names)
 		}
