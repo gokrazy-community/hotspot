@@ -101,7 +101,32 @@ func run() error {
 		return fmt.Errorf("StartBeacon: %w", err)
 	}
 
-	return nil
+	dhcpServer, err := hotspot.NewDHCP4(iface.Name, &dhcpManager{})
+	if err != nil {
+		return fmt.Errorf("dhcp: %w", err)
+	}
+	defer dhcpServer.Close()
+	log.Println("dhcp listening")
+	return dhcpServer.Serve()
+}
+
+type dhcpManager struct{}
+
+// Discover implements hotspot.DHCPHandler.
+func (d *dhcpManager) Discover(req hotspot.DHCPRequest) hotspot.DHCPReply {
+	log.Println("discover", req)
+	return hotspot.DHCPReply{}
+}
+
+// Err implements hotspot.DHCPHandler.
+func (d *dhcpManager) Err(err error) {
+	log.Println("dhcp", err)
+}
+
+// Request implements hotspot.DHCPHandler.
+func (d *dhcpManager) Request(req hotspot.DHCPRequest) hotspot.DHCPReply {
+	log.Println("request", req)
+	return hotspot.DHCPReply{}
 }
 
 func findWirelessInterface(name string) (*net.Interface, error) {
