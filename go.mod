@@ -14,6 +14,7 @@ require (
 )
 
 require (
+	code.pfad.fr/check v1.1.0
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/jsimonetti/rtnetlink/v2 v2.0.5

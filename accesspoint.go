@@ -67,9 +67,9 @@ func EnableAccessPointMode(cfg LinkConfig, netcfg *netlink.Config) error {
 	}
 	// route, err := rtConn.RouteGet(net.IP{255, 255, 255, 255})
 	// log.Println("route", route, route.Destination, route.Interface.Name, err)
-	// route, err = rtConn.RouteGet(net.IP{172, 17, 2, 2})
+	// route, err = rtConn.RouteGet(net.IP{172, 17, 2, 67})
 	// if err != nil {
-	// 	log.Println("route 172.17.2.2", err)
+	// 	log.Println("route 172.17.2.67", err)
 	// } else {
 	// 	log.Println("route", route, route.Destination, route.Interface.Name, err)
 	// }

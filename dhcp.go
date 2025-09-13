@@ -101,11 +101,19 @@ func NewDHCP4(ifname string, handler DHCPHandler) (*DHCPServer, error) {
 			handler.Err(fmt.Errorf("could not make reply: %w", err))
 			return
 		}
+		if upeer, ok := peer.(*net.UDPAddr); ok && upeer.IP.Equal(net.IPv4zero) {
+			peer = &net.UDPAddr{
+				IP:   net.IPv4bcast,
+				Port: upeer.Port,
+				Zone: upeer.Zone,
+			}
+		}
 		_, err = conn.WriteTo(resp.ToBytes(), peer)
 		if err != nil {
 			handler.Err(fmt.Errorf("could not write reply: %w", err))
 			return
 		}
+		log.Printf("written %v: %v", peer, resp)
 	})
 	if err != nil {
 		return nil, err
