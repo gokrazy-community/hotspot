@@ -21,13 +21,50 @@ func main() {
 	}
 }
 
+type (
+	cidrFlag struct {
+		IP  net.IP
+		Net *net.IPNet
+	}
+)
+
+// Set implements flag.Value.
+func (c *cidrFlag) Set(s string) error {
+	ip, subnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return err
+	}
+	c.IP = ip
+	c.Net = subnet
+	return nil
+}
+
+// String implements flag.Value.
+func (c *cidrFlag) String() string {
+	if c == nil || c.IP == nil || c.Net == nil {
+		return "<nil>"
+	}
+	bits, _ := c.Net.Mask.Size()
+	return fmt.Sprintf("%s/%d", c.IP.String(), bits)
+}
+
 func run() error {
 	var ifaceName string
 	var ssid string
 	var channel uint
+	cidr := cidrFlag{
+		IP: net.IP{172, 17, 2, 1},
+		Net: &net.IPNet{
+			IP: net.IP{172, 17, 2, 0},
+			Mask: net.IPMask{
+				255, 255, 255, 0,
+			},
+		},
+	}
 	flag.StringVar(&ifaceName, "iface", "", "name of the wifi interface (can be left empty if only one is available)")
+	flag.Var(&cidr, "cidr", "CIDR to indicate the IP address of the wifi interface and the subnet to route via this interface")
 	flag.StringVar(&ssid, "ssid", "gokrazy", "SSID of the wifi network")
-	flag.UintVar(&channel, "channel", 0, "Channel of the wifi network (1-14, 0 means random)")
+	flag.UintVar(&channel, "channel", 0, "Channel of the wifi network (1-14, randomly chosen if unset)")
 	flag.Parse()
 
 	if channel == 0 {
@@ -47,24 +84,14 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("findWirelessInterface: %w", err)
 	}
-	var (
-		// TODO: as flag
-		serverIP  = net.IP{172, 17, 2, 1}
-		serverNet = net.IPNet{
-			IP: net.IP{172, 17, 2, 0},
-			Mask: net.IPMask{
-				255, 255, 255, 0,
-			},
-		}
-	)
 
 	if err := hotspot.EnableAccessPointMode(hotspot.LinkConfig{
 		Interface: iface,
 		Addr: &net.IPNet{
-			IP:   serverIP,
+			IP:   cidr.IP,
 			Mask: net.IPMask{255, 255, 255, 255},
 		},
-		Route:          &serverNet,
+		Route:          cidr.Net,
 		BroadcastRoute: true,
 	}, nil); err != nil {
 		return fmt.Errorf("EnableAccessPointMode: %w", err)
