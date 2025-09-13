@@ -66,7 +66,7 @@ func run() error {
 	flag.StringVar(&ifaceName, "iface", "", "name of the wifi interface (can be left empty if only one is available)")
 	flag.Var(&cidr, "cidr", "CIDR to indicate the IP address of the wifi interface and the subnet to route via this interface")
 	flag.StringVar(&ssid, "ssid", "gokrazy", "SSID of the wifi network")
-	flag.UintVar(&channel, "channel", 0, "Channel of the wifi network (1-14, randomly chosen if unset)")
+	flag.UintVar(&channel, "channel", 6, "Channel of the wifi network (1-14, randomly chosen if unset)")
 	flag.Parse()
 
 	if channel == 0 {
@@ -109,7 +109,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("dhcp config: %w", err)
 	}
-	dhcpServer, err := hotspot.NewDHCP4(iface.Name, dm)
+	dhcpServer, err := hotspot.NewDHCP4(iface, dm)
 	if err != nil {
 		return fmt.Errorf("dhcp: %w", err)
 	}
@@ -170,7 +170,8 @@ func newDHCP4Manager(router net.IP, mask net.IPMask, dns ...net.IP) (*dhcpManage
 		reserved: map[uint32]struct{}{
 			routerIP: {},
 		},
-		leases: make(map[uint32]lease),
+		leases:        make(map[uint32]lease),
+		leaseDuration: 15 * time.Second,
 	}
 
 	ones, bits := mask.Size()
