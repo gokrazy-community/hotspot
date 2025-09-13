@@ -11,6 +11,8 @@ github.com/josharian/native v1.1.0 h1:uuaP0hAbW7Y4l0ZRQ6C9zfb7Mg1mbFKry/xzDAfmtL
 github.com/josharian/native v1.1.0/go.mod h1:7X/raswPFr05uY3HiLlYeyQntB6OO7E/d2Cu7qoaN2w=
 github.com/jsimonetti/rtnetlink/v2 v2.0.5 h1:l5S9iedrSW4thUfgiU+Hzsnk1cOR0upGD5ttt6mirHw=
 github.com/jsimonetti/rtnetlink/v2 v2.0.5/go.mod h1:9yTlq3Ojr1rbmh/Y5L30/KIojpFhTRph2xKeZ+y+Pic=
+github.com/krolaw/dhcp4 v0.0.0-20190909130307-a50d88189771 h1:t2c2B9g1ZVhMYduqmANSEGVD3/1WlsrEYNPtVoFlENk=
+github.com/krolaw/dhcp4 v0.0.0-20190909130307-a50d88189771/go.mod h1:0AqAH3ZogsCrvrtUpvc6EtVKbc3w6xwZhkvGLuqyi3o=
 github.com/mdlayher/genetlink v1.3.2 h1:KdrNKe+CTu+IbZnm/GVUMXSqBBLqcGpRDa0xkQy56gw=
 github.com/mdlayher/genetlink v1.3.2/go.mod h1:tcC3pkCrPUGIKKsCsp0B3AdaaKuHtaxoJRz3cc+528o=
 github.com/mdlayher/netlink v1.7.2 h1:/UtM3ofJap7Vl4QWCPDGXY8d3GIY2UGSDbK+QWmY8/g=

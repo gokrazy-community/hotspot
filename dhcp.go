@@ -8,6 +8,8 @@ import (
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
+
+	dhcpk "github.com/krolaw/dhcp4"
 )
 
 type (
@@ -43,7 +45,7 @@ func (d *DHCPServer) Close() error {
 	return d.close()
 }
 
-func NewDHCP4(ifname string, handler DHCPHandler) (*DHCPServer, error) {
+func NewDHCP4broken(ifname string, handler DHCPHandler) (*DHCPServer, error) {
 	server, err := server4.NewServer(ifname, &net.UDPAddr{
 		IP:   net.IPv4zero, // all IPv4 addresses
 		Port: 67,
@@ -122,4 +124,72 @@ func NewDHCP4(ifname string, handler DHCPHandler) (*DHCPServer, error) {
 		close: server.Close,
 		serve: server.Serve,
 	}, nil
+}
+
+func NewDHCP4(ifname string, handler DHCPHandler) (*DHCPServer, error) {
+	l, err := net.ListenPacket("udp4", ":67")
+	if err != nil {
+		return nil, err
+	}
+	return &DHCPServer{
+		close: l.Close,
+		serve: func() error {
+			return dhcpk.Serve(l, dhcpkHandler{handler, net.IP{172, 17, 2, 1}})
+		},
+	}, nil
+}
+
+type dhcpkHandler struct {
+	handler DHCPHandler
+	router  net.IP
+}
+
+// ServeDHCP implements dhcp4.Handler.
+func (d dhcpkHandler) ServeDHCP(p dhcpk.Packet, msgType dhcpk.MessageType, options dhcpk.Options) dhcpk.Packet {
+	log.Println("serve", p.CHAddr(), msgType, p.GIAddr(), p.CIAddr())
+	dreq := DHCPRequest{
+		HardwareAddr: p.CHAddr(),
+		Peer:         nil,
+		WishIP:       net.IP(options[dhcpk.OptionRequestedIPAddress]),
+		Hostname:     "lol",
+	}
+	switch msgType {
+
+	case dhcpk.Discover:
+		r := d.handler.Discover(dreq)
+		if r.IP.IsUnspecified() {
+			d.handler.Err(fmt.Errorf("Discover: no IP returned"))
+			return nil
+		}
+		log.Println("reply", p.GIAddr())
+		return dhcpk.ReplyPacket(p, dhcpk.Offer, d.router, r.IP, r.Lease, nil)
+
+		// h.options.SelectOrderOrAll(options[dhcpk.OptionParameterRequestList]))
+
+	case dhcpk.Request:
+		if server, ok := options[dhcpk.OptionServerIdentifier]; ok && !net.IP(server).Equal(d.router) {
+			return nil // Message not for this dhcp server
+		}
+		if dreq.WishIP == nil {
+			dreq.WishIP = p.CIAddr()
+		}
+		r := d.handler.Request(dreq)
+		if r.IP.IsUnspecified() {
+			d.handler.Err(fmt.Errorf("Request: no IP returned"))
+			return dhcpk.ReplyPacket(p, dhcpk.NAK, d.router, nil, 0, nil)
+		}
+		return dhcpk.ReplyPacket(p, dhcpk.ACK, d.router, r.IP, r.Lease, nil)
+		// return dhcpk.ReplyPacket(p, dhcpk.ACK, h.ip, reqIP, h.leaseDuration,
+		// h.options.SelectOrderOrAll(options[dhcpk.OptionParameterRequestList]))
+
+	case dhcpk.Release, dhcpk.Decline:
+		// nic := p.CHAddr().String()
+		// for i, v := range h.leases {
+		// 	if v.nic == nic {
+		// 		delete(h.leases, i)
+		// 		break
+		// 	}
+		// }
+	}
+	return nil
 }
