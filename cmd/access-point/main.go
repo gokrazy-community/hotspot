@@ -66,7 +66,7 @@ func run() error {
 	flag.StringVar(&ifaceName, "iface", "", "name of the wifi interface (can be left empty if only one is available)")
 	flag.Var(&cidr, "cidr", "CIDR to indicate the IP address of the wifi interface and the subnet to route via this interface")
 	flag.StringVar(&ssid, "ssid", "gokrazy", "SSID of the wifi network")
-	flag.UintVar(&channel, "channel", 6, "Channel of the wifi network (1-14, randomly chosen if unset)")
+	flag.UintVar(&channel, "channel", 0, "Channel of the wifi network (1-14, randomly chosen if unset)")
 	flag.Parse()
 
 	if channel == 0 {
@@ -114,7 +114,8 @@ func run() error {
 		return fmt.Errorf("dhcp: %w", err)
 	}
 	defer dhcpServer.Close()
-	log.Println("dhcp listening")
+
+	log.Println("dhcp serving")
 	return dhcpServer.Serve()
 }
 
@@ -124,7 +125,7 @@ type lease struct {
 }
 
 func (l lease) suitable(hw net.HardwareAddr, now time.Time) bool {
-	return now.Sub(l.until) > time.Second || bytes.Equal(l.client, hw)
+	return now.Sub(l.until) > time.Minute || bytes.Equal(l.client, hw)
 }
 
 type dhcpManager struct {
@@ -171,7 +172,7 @@ func newDHCP4Manager(router net.IP, mask net.IPMask, dns ...net.IP) (*dhcpManage
 			routerIP: {},
 		},
 		leases:        make(map[uint32]lease),
-		leaseDuration: 15 * time.Second,
+		leaseDuration: 15 * time.Minute,
 	}
 
 	ones, bits := mask.Size()
@@ -192,7 +193,9 @@ func newDHCP4Manager(router net.IP, mask net.IPMask, dns ...net.IP) (*dhcpManage
 
 func (dm *dhcpManager) Discover(req hotspot.DHCPRequest) hotspot.DHCPReply {
 	ip, d := dm.findIP(req.WishIP, req.HardwareAddr, false)
-	log.Println("discover", req, ip)
+	if ip.IsUnspecified() {
+		log.Println("discover full", req, ip)
+	}
 	return hotspot.DHCPReply{
 		IP:      ip,
 		Lease:   d,
@@ -204,7 +207,7 @@ func (dm *dhcpManager) Discover(req hotspot.DHCPRequest) hotspot.DHCPReply {
 
 func (dm *dhcpManager) Request(req hotspot.DHCPRequest) hotspot.DHCPReply {
 	ip, d := dm.findIP(req.WishIP, req.HardwareAddr, true)
-	log.Println("request", req, ip)
+	log.Println("dhcp", req.HardwareAddr, "assigned", ip)
 	return hotspot.DHCPReply{
 		IP:      ip,
 		Lease:   d,

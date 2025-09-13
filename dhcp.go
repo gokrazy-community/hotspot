@@ -2,15 +2,11 @@ package hotspot
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"time"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
-	"golang.org/x/net/ipv4"
-
-	dhcpk "github.com/krolaw/dhcp4"
 )
 
 type (
@@ -48,7 +44,6 @@ func (d *DHCPServer) Close() error {
 
 func NewDHCP4(iface *net.Interface, handler DHCPHandler) (*DHCPServer, error) {
 	server, err := server4.NewServer(iface.Name, nil, func(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) {
-		log.Println("dhcp4", req)
 		if req.OpCode != dhcpv4.OpcodeBootRequest {
 			handler.Err(fmt.Errorf("unsupported opcode %d. Only BootRequest (%d) is supported", req.OpCode, dhcpv4.OpcodeBootRequest))
 			return
@@ -83,16 +78,20 @@ func NewDHCP4(iface *net.Interface, handler DHCPHandler) (*DHCPServer, error) {
 			r := handler.Request(dreq)
 			if r.IP.IsUnspecified() {
 				handler.Err(fmt.Errorf("Request: no IP returned"))
-				return
-			}
-			modifier = func(d *dhcpv4.DHCPv4) {
-				d.YourIPAddr = r.IP
-				d.UpdateOption(dhcpv4.OptIPAddressLeaseTime(r.Lease))
-				d.UpdateOption(dhcpv4.OptRouter(r.Routers...))
-				d.UpdateOption(dhcpv4.OptSubnetMask(r.Subnet))
-				d.UpdateOption(dhcpv4.OptDNS(r.DNS...))
-				d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
-				d.UpdateOption(dhcpv4.OptServerIdentifier(r.Routers[0]))
+				modifier = func(d *dhcpv4.DHCPv4) {
+					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeNak))
+					d.UpdateOption(dhcpv4.OptServerIdentifier(r.Routers[0]))
+				}
+			} else {
+				modifier = func(d *dhcpv4.DHCPv4) {
+					d.YourIPAddr = r.IP
+					d.UpdateOption(dhcpv4.OptIPAddressLeaseTime(r.Lease))
+					d.UpdateOption(dhcpv4.OptRouter(r.Routers...))
+					d.UpdateOption(dhcpv4.OptSubnetMask(r.Subnet))
+					d.UpdateOption(dhcpv4.OptDNS(r.DNS...))
+					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
+					d.UpdateOption(dhcpv4.OptServerIdentifier(r.Routers[0]))
+				}
 			}
 		default:
 			handler.Err(fmt.Errorf("unsupported message type: %v", mt))
@@ -103,31 +102,11 @@ func NewDHCP4(iface *net.Interface, handler DHCPHandler) (*DHCPServer, error) {
 			handler.Err(fmt.Errorf("could not make reply: %w", err))
 			return
 		}
-		if upeer, ok := peer.(*net.UDPAddr); ok {
-			// peer = &net.UDPAddr{
-			// 	IP:   net.IPv4bcast,
-			// 	Port: upeer.Port,
-			// 	Zone: upeer.Zone,
-			// }
-			if uConn, ok := conn.(*net.UDPConn); ok {
-				woob := &ipv4.ControlMessage{IfIndex: iface.Index}
-				_, _, err = uConn.WriteMsgUDP(resp.ToBytes(), woob.Marshal(), upeer)
-				if err != nil {
-					handler.Err(fmt.Errorf("could not write reply: %w", err))
-					return
-				}
-				debug(resp.ToBytes())
-				log.Printf("written %v: %v %#v", peer, resp, conn)
-				return
-			}
-		}
-		log.Println("WTF")
 		_, err = conn.WriteTo(resp.ToBytes(), peer)
 		if err != nil {
 			handler.Err(fmt.Errorf("could not write reply: %w", err))
 			return
 		}
-		log.Printf("written %v: %v %#v", peer, resp, conn)
 	})
 	if err != nil {
 		return nil, err
@@ -136,92 +115,4 @@ func NewDHCP4(iface *net.Interface, handler DHCPHandler) (*DHCPServer, error) {
 		close: server.Close,
 		serve: server.Serve,
 	}, nil
-}
-
-func NewDHCP4w(iface *net.Interface, handler DHCPHandler) (*DHCPServer, error) {
-	l, err := net.ListenPacket("udp4", ":67")
-	if err != nil {
-		return nil, err
-	}
-	return &DHCPServer{
-		close: l.Close,
-		serve: func() error {
-			return dhcpk.Serve(l, dhcpkHandler{handler, net.IP{172, 17, 2, 1}})
-		},
-	}, nil
-}
-
-type dhcpkHandler struct {
-	handler DHCPHandler
-	router  net.IP
-}
-
-// ServeDHCP implements dhcp4.Handler.
-func (d dhcpkHandler) ServeDHCP(p dhcpk.Packet, msgType dhcpk.MessageType, options dhcpk.Options) dhcpk.Packet {
-	log.Println("serve", p.CHAddr(), msgType, p.GIAddr(), p.CIAddr())
-	dreq := DHCPRequest{
-		HardwareAddr: p.CHAddr(),
-		Peer:         nil,
-		WishIP:       net.IP(options[dhcpk.OptionRequestedIPAddress]),
-		Hostname:     "lol",
-	}
-	switch msgType {
-
-	case dhcpk.Discover:
-		r := d.handler.Discover(dreq)
-		if r.IP.IsUnspecified() {
-			d.handler.Err(fmt.Errorf("Discover: no IP returned"))
-			return nil
-		}
-		ropts := dhcpk.Options{
-			dhcpk.OptionSubnetMask:       r.Subnet,
-			dhcpk.OptionRouter:           r.Routers[0],
-			dhcpk.OptionDomainNameServer: r.DNS[0],
-		}
-		log.Println("reply", p.GIAddr())
-		rp := dhcpk.ReplyPacket(p, dhcpk.Offer, d.router, r.IP, r.Lease, ropts.SelectOrderOrAll(options[dhcpk.OptionParameterRequestList]))
-		debug(rp)
-		return rp
-
-	case dhcpk.Request:
-		if server, ok := options[dhcpk.OptionServerIdentifier]; ok && !net.IP(server).Equal(d.router) {
-			return nil // Message not for this dhcp server
-		}
-		if dreq.WishIP == nil {
-			dreq.WishIP = p.CIAddr()
-		}
-		r := d.handler.Request(dreq)
-		if r.IP.IsUnspecified() {
-			d.handler.Err(fmt.Errorf("Request: no IP returned"))
-			return dhcpk.ReplyPacket(p, dhcpk.NAK, d.router, nil, 0, nil)
-		}
-		ropts := dhcpk.Options{
-			dhcpk.OptionSubnetMask:       r.Subnet,
-			dhcpk.OptionRouter:           r.Routers[0],
-			dhcpk.OptionDomainNameServer: r.DNS[0],
-		}
-		rp := dhcpk.ReplyPacket(p, dhcpk.ACK, d.router, r.IP, r.Lease, ropts.SelectOrderOrAll(options[dhcpk.OptionParameterRequestList]))
-		debug(rp)
-		return rp
-		// return dhcpk.ReplyPacket(p, dhcpk.ACK, h.ip, reqIP, h.leaseDuration,
-		// h.options.SelectOrderOrAll(options[dhcpk.OptionParameterRequestList]))
-
-	case dhcpk.Release, dhcpk.Decline:
-		// nic := p.CHAddr().String()
-		// for i, v := range h.leases {
-		// 	if v.nic == nic {
-		// 		delete(h.leases, i)
-		// 		break
-		// 	}
-		// }
-	}
-	return nil
-}
-
-func debug(p []byte) {
-	d, err := dhcpv4.FromBytes(p)
-	if err != nil {
-		log.Println("wtff", err)
-	}
-	log.Println(d.Summary())
 }
