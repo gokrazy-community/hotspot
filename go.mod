@@ -1,8 +1,9 @@
 module github.com/gokrazy-community/hotspot
 
-go 1.24.5
+go 1.25.0
 
 require (
+	codeberg.org/miekg/dns v0.1.11
 	github.com/insomniacslk/dhcp v0.0.0-20250828142853-d3abe7ccb0ad
 	github.com/mdlayher/genetlink v1.3.2
 )
@@ -10,7 +11,7 @@ require (
 require (
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
 )
 
 require (
@@ -21,7 +22,7 @@ require (
 	github.com/mdlayher/netlink v1.7.2
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mdlayher/wifi v0.6.0
-	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.36.0
 )
