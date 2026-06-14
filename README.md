@@ -4,11 +4,11 @@ This is highly experimental. It might work (but likely not without additional wo
 
 Help to clean this up is welcome!
 
-`extrafiles.tar` come from https://github.com/gokrazy/wifi
+`extrafiles.tar` comes from https://github.com/gokrazy/wifi
 
 The following config should:
 
-- Expose an open Wi-Fi hotspot name `gokrazy` on channel 6
+- Expose an open Wi-Fi hotspot named `gokrazy` on channel 6
 - Upon connection, assign an IPv4 via DHCP: 172.17.2.XXX and advertise an DNS server on 172.17.2.1 (address of the gokrazy instance)
 - Reply to all DNS `A` requests with its own IP address (172.17.2.1)
 
